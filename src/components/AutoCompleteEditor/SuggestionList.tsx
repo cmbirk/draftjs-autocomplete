@@ -1,16 +1,20 @@
 import React from 'react';
+import SuggestionEntry from './SuggestionEntry';
 
 interface SuggestionListProps {
-  filteredSuggestions: string[];
-  insertAutocompleteEntity: (suggestion: string) => void;
-  setHighlightedIndex: (index: number) => void;
-  highlightedIndex: number;
-  suggestListPosition: {
+  filteredSuggestions: string[]; // The list of filtered suggestions to render
+  insertAutocompleteEntity: (suggestion: string) => void; // The function to insert the autocomplete entity
+  setHighlightedIndex: (index: number) => void; // The function to set the highlighted index
+  highlightedIndex: number; // The index of the highlighted suggestion
+  suggestListPosition: { // values used to position the suggestion list
     top: number;
     left: number;
   };
 }
 
+/**
+ * Renders the list of autocomplete suggestions.
+ */
 const SuggestionList: React.FC<SuggestionListProps> = ({
   filteredSuggestions,
   insertAutocompleteEntity,
@@ -30,25 +34,17 @@ const SuggestionList: React.FC<SuggestionListProps> = ({
     >
       {filteredSuggestions.length > 0 ? (
         filteredSuggestions.map((suggestion, idx) => (
-          <div
+          <SuggestionEntry
             key={suggestion}
-            onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
-              // onMouseDown to prevent editor blur
-              e.preventDefault();
-              insertAutocompleteEntity(suggestion);
-            }}
-            onMouseEnter={() => setHighlightedIndex(idx)}
-            style={{
-              padding: '5px 10px',
-              backgroundColor: idx === highlightedIndex ? '#bde4ff' : 'transparent',
-              cursor: 'pointer',
-            }}
-          >
-            {suggestion}
-          </div>
+            suggestion={suggestion}
+            idx={idx}
+            highlightedIndex={highlightedIndex}
+            insertAutocompleteEntity={insertAutocompleteEntity}
+            setHighlightedIndex={setHighlightedIndex}
+          />
         ))
       ) : (
-        <div style={{ padding: '5px 10px', fontStyle: 'italic', color: '#999' }}>
+        <div className="no-suggestions">
           No suggestions
         </div>
       )}

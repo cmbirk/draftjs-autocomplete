@@ -1,15 +1,17 @@
-import React from "react";
-import { ContentState } from "draft-js";
+import React from 'react';
+import { ContentState } from 'draft-js';
 interface AutocompleteEntryProps {
   children: React.ReactNode;
   contentState: ContentState;
   entityKey: string;
 }
 
-// Rendering autocomplete entity
+/**
+ * Renders the completed autocomplete entity in the editor.
+ */
 const AutocompleteEntry = (props: AutocompleteEntryProps) => {
   return (
-    <span style={{ color: "gray", padding: '0 4px' }}>
+    <span className="autocomplete-entry">
       {props.children}
     </span>
   )

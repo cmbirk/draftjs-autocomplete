@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Editor,
   EditorState,
@@ -15,20 +15,31 @@ import {
   getVisibleSelectionRect,
 } from "draft-js";
 
-import AutocompleteEntry from "./AutocompleteEntry";
-import SuggestionList from "./SuggestionList";
+import AutocompleteEntry from './AutocompleteEntry';
+import SuggestionList from './SuggestionList';
 
+// Hardcoded suggestion list for autocomplete
 const SUGGESTIONS = [
-  'application',
-  'react',
-  'render',
-  'suggestion',
-  'tougher',
-  'tournament',
-  'react application',
-  'this is a react component',
-  'react component',
-  'react-component',
+  'Ideaflow is a super-fast, searchable stack of your thoughts',
+  'Hashtags (#)',
+  'Relations (+)',
+  'Create a new note with Cmd + K',
+  'Add hashtags with # to group related notes',
+  'Use + to add relations between notes',
+  'Voice Notes in Ideaflow',
+  'Importing your Notes',
+  'Mobile Quickstart',
+  'How to format text',
+  'How to insert images',
+  'Power-user Workflows',
+  'Blog-writing Workflow',
+  'Conversation Notes Workflow and Examples',
+  'Using #@ Mention',
+  'When to Use Hashtags vs References',
+  'Zones - a more Implicit trick',
+  'Using Ideaflow as a Microblog',
+  'Some More Tips',
+  'Ideaflow supports importing notes'
 ];
 
 
@@ -57,11 +68,17 @@ const decorator = new CompositeDecorator([
   },
 ])
 
+/**
+ * The main component for the autocomplete editor.
+ */
 const AutocompleteEditor: React.FC = () => {
+
+  // Editor state
   const [editorState, setEditorState] = useState<EditorState>(
     EditorState.createEmpty(decorator),
   );
 
+  // Autocomplete state
   const [isAutocompleteActive, setIsAutocompleteActive] = useState(false);
   const [matchString, setMatchString] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -71,8 +88,10 @@ const AutocompleteEditor: React.FC = () => {
     left: 0,
   });
 
+  // Editor reference
   const editorRef = useRef<Editor>(null);
 
+  // Calculate the position of the suggestion list rendered as a portal
   const calculateSuggestListPosition = (editorState: EditorState) => {
     const selectionRect = getVisibleSelectionRect(document);
     if (!selectionRect) {
@@ -85,6 +104,10 @@ const AutocompleteEditor: React.FC = () => {
     };
   };
 
+  // useEffect call to calculate the position of the suggestion list
+  // While this hook has the editorState as a dependency,
+  // it shouldn't be a performance issue as the hook immediately returns
+  // if the autocomplete is not active.
   useEffect(() => {
     if (!isAutocompleteActive) return;
 
@@ -106,6 +129,7 @@ const AutocompleteEditor: React.FC = () => {
     }
   }, [isAutocompleteActive, editorState])
 
+  // useEffect call to filter the suggestions based on the matchString
   useEffect(() => {
     if (matchString.length > 0) {
       const filtered = SUGGESTIONS.filter((suggestion) =>
@@ -119,13 +143,17 @@ const AutocompleteEditor: React.FC = () => {
     setHighlightedIndex(0);
   }, [matchString]);
 
+  // Focus the editor
   const focusEditor = () => {
     if (editorRef.current) {
       editorRef.current.focus();
     }
   }
 
+  // Handle the autocomplete text trigger of "<>"
   const handleAutocompleteTrigger = (chars: string, editorStateParam: EditorState) => {
+
+    // Get the editor state, current selection, and the block text
     const selection = editorState.getSelection();
     const content = editorState.getCurrentContent();
     const blockKey = selection.getStartKey();
@@ -152,8 +180,10 @@ const AutocompleteEditor: React.FC = () => {
     return 'not-handled';
   }
 
+  // Remove entire entity if backspace pressed
   const handleBeforeInputBackspace = (): DraftHandleValue => {
     const selection = editorState.getSelection();
+
     if (!selection.isCollapsed()) return 'not-handled';
 
     const offset = selection.getStartOffset();
@@ -201,6 +231,7 @@ const AutocompleteEditor: React.FC = () => {
     return 'not-handled';
   }
 
+  // Handle backspace and other input separately
   const handleEditorBeforeInput = (
     chars: string,
     editorStateParam: EditorState,
@@ -209,9 +240,10 @@ const AutocompleteEditor: React.FC = () => {
       return handleBeforeInputBackspace();
     }
 
-    return handleAutocompleteTrigger(chars, editorStateParam);
+    return handleBeforeInput(chars, editorStateParam);
   };
 
+  // onChange handler for the editor to check for autocomplete
   const onChange = (newState: EditorState) => {
     if (isAutocompleteActive) {
       const selection = newState.getSelection();
@@ -239,6 +271,7 @@ const AutocompleteEditor: React.FC = () => {
     setEditorState(newState);
   }
 
+  // Insert the autocomplete entity as a new entity in the editor
   const insertAutocompleteEntity = (text: string) => {
     let contentState = editorState.getCurrentContent();
     const selection = editorState.getSelection();
@@ -286,6 +319,7 @@ const AutocompleteEditor: React.FC = () => {
     setMatchString('');
   }
 
+  // Key binding function to handle autocomplete key commands
   const keyBindingFn = (e: React.KeyboardEvent): string | null => {
     if (isAutocompleteActive) {
       if (e.key === 'ArrowDown') return 'autocomplete-down';
@@ -298,6 +332,7 @@ const AutocompleteEditor: React.FC = () => {
     return getDefaultKeyBinding(e);
   }
 
+  // Handle key commands for autocomplete
   const handleKeyCommand = (
     command: string,
     editorStateParam: EditorState
@@ -344,6 +379,7 @@ const AutocompleteEditor: React.FC = () => {
     return 'not-handled';
   }
 
+  // Render the editor and the suggestion list as a portal
   return (
     <div
       onClick={focusEditor}
@@ -354,7 +390,7 @@ const AutocompleteEditor: React.FC = () => {
         ref={editorRef}
         editorState={editorState}
         onChange={onChange}
-        placeholder="There's no write's block here. Use <> to trigger autocomplete."
+        placeholder="Writer's block? Use <> to trigger autocomplete."
         handleBeforeInput={handleEditorBeforeInput}
         keyBindingFn={keyBindingFn}
         handleKeyCommand={handleKeyCommand}
