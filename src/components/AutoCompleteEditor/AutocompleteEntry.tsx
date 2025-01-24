@@ -1,5 +1,10 @@
 import React from "react";
-import type { AutocompleteEntryProps } from "@/types";
+import { ContentState } from "draft-js";
+interface AutocompleteEntryProps {
+  children: React.ReactNode;
+  contentState: ContentState;
+  entityKey: string;
+}
 
 // Rendering autocomplete entity
 const AutocompleteEntry = (props: AutocompleteEntryProps) => {

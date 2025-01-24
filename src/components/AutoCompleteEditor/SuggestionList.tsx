@@ -5,11 +5,29 @@ interface SuggestionListProps {
   insertAutocompleteEntity: (suggestion: string) => void;
   setHighlightedIndex: (index: number) => void;
   highlightedIndex: number;
+  suggestListPosition: {
+    top: number;
+    left: number;
+  };
 }
 
-const SuggestionList: React.FC<SuggestionListProps> = ({ filteredSuggestions, insertAutocompleteEntity, setHighlightedIndex, highlightedIndex }) => {
+const SuggestionList: React.FC<SuggestionListProps> = ({
+  filteredSuggestions,
+  insertAutocompleteEntity,
+  setHighlightedIndex,
+  highlightedIndex,
+  suggestListPosition,
+}) => {
   return (
-    <div className="autocomplete-container">
+    <div
+      className="autocomplete-container"
+      style={{
+        position: 'absolute',
+        top: suggestListPosition.top,
+        left: suggestListPosition.left,
+        zIndex: 1000,
+      }}
+    >
       {filteredSuggestions.length > 0 ? (
         filteredSuggestions.map((suggestion, idx) => (
           <div

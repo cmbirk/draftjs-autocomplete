@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Editor,
   EditorState,
@@ -11,6 +12,7 @@ import {
   RichUtils,
   SelectionState,
   getDefaultKeyBinding,
+  getVisibleSelectionRect,
 } from "draft-js";
 
 import AutocompleteEntry from "./AutocompleteEntry";
@@ -64,12 +66,45 @@ const AutocompleteEditor: React.FC = () => {
   const [matchString, setMatchString] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [filteredSuggestions, setFilteredSuggestions] = useState(SUGGESTIONS);
+  const [suggestListPosition, setSuggestListPosition] = useState({
+    top: 0,
+    left: 0,
+  });
 
   const editorRef = useRef<Editor>(null);
 
+  const calculateSuggestListPosition = (editorState: EditorState) => {
+    const selectionRect = getVisibleSelectionRect(document);
+    if (!selectionRect) {
+      return { top: 0, left: 0 };
+    }
+
+    return {
+      top: selectionRect.bottom,
+      left: selectionRect.left,
+    };
+  };
+
   useEffect(() => {
-    console.log('isAutocompleteActive', isAutocompleteActive);
-  }, [isAutocompleteActive])
+    if (!isAutocompleteActive) return;
+
+
+    const position = calculateSuggestListPosition(editorState);
+    setSuggestListPosition(position)
+
+    const handleReposition = () => {
+      const newPosition = calculateSuggestListPosition(editorState);
+      setSuggestListPosition(newPosition);
+    }
+
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition);
+
+    return () => {
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition);
+    }
+  }, [isAutocompleteActive, editorState])
 
   useEffect(() => {
     if (matchString.length > 0) {
@@ -90,8 +125,7 @@ const AutocompleteEditor: React.FC = () => {
     }
   }
 
-  const checkForTrigger = (chars: string, editorStateParam: EditorState) => {
-    console.log('checkForTrigger', chars);
+  const handleAutocompleteTrigger = (chars: string, editorStateParam: EditorState) => {
     const selection = editorState.getSelection();
     const content = editorState.getCurrentContent();
     const blockKey = selection.getStartKey();
@@ -99,10 +133,6 @@ const AutocompleteEditor: React.FC = () => {
     const text = block.getText();
     const cursorPos = selection.getStartOffset();
 
-
-    console.log('text', text);
-    console.log('cursorPos', cursorPos);
-    console.log(text.charAt(cursorPos - 1));
     // Check if the last character entered would complete '<>'
     if (chars === '>' && cursorPos > 0 && text.charAt(cursorPos - 1) === '<') {
       setIsAutocompleteActive(true);
@@ -118,9 +148,69 @@ const AutocompleteEditor: React.FC = () => {
     chars: string,
     editorStateParam: EditorState,
   ): DraftHandleValue => {
-    checkForTrigger(chars, editorStateParam);
+    handleAutocompleteTrigger(chars, editorStateParam);
     return 'not-handled';
   }
+
+  const handleBeforeInputBackspace = (): DraftHandleValue => {
+    const selection = editorState.getSelection();
+    if (!selection.isCollapsed()) return 'not-handled';
+
+    const offset = selection.getStartOffset();
+    const blockKey = selection.getStartKey();
+    const content = editorState.getCurrentContent();
+    const block = content.getBlockForKey(blockKey);
+
+    if (offset > 0) {
+      const charBefore = block.getCharacterList().get(offset - 1);
+      if (!charBefore) return 'not-handled';
+
+      const entityKey = charBefore.getEntity();
+      if (entityKey) {
+        const entity = content.getEntity(entityKey);
+        if (entity.getType() === 'AUTOCOMPLETE') {
+          const entitySelection = SelectionState.createEmpty(blockKey).merge({
+            anchorOffset: offset - 1,
+            focusOffset: offset,
+          });
+
+          const newContentState = Modifier.removeRange(
+            content,
+            entitySelection,
+            'backward'
+          );
+
+          const newEditorState = EditorState.push(
+            editorState,
+            newContentState,
+            'remove-range'
+          );
+
+          setEditorState(
+            EditorState.forceSelection(
+              newEditorState,
+              newContentState.getSelectionAfter(),
+            )
+          );
+
+          return 'handled';
+        }
+      }
+    }
+
+    return 'not-handled';
+  }
+
+  const handleEditorBeforeInput = (
+    chars: string,
+    editorStateParam: EditorState,
+  ): DraftHandleValue => {
+    if (chars === '\b') {
+      return handleBeforeInputBackspace();
+    }
+
+    return handleAutocompleteTrigger(chars, editorStateParam);
+  };
 
   const onChange = (newState: EditorState) => {
     if (isAutocompleteActive) {
@@ -254,83 +344,29 @@ const AutocompleteEditor: React.FC = () => {
     return 'not-handled';
   }
 
-  const handleBeforeInputBackspace = (): DraftHandleValue => {
-    const selection = editorState.getSelection();
-    if (!selection.isCollapsed()) return 'not-handled';
-
-    const offset = selection.getStartOffset();
-    const blockKey = selection.getStartKey();
-    const content = editorState.getCurrentContent();
-    const block = content.getBlockForKey(blockKey);
-
-    if (offset > 0) {
-      const charBefore = block.getCharacterList().get(offset - 1);
-      if (!charBefore) return 'not-handled';
-
-      const entityKey = charBefore.getEntity();
-      if (entityKey) {
-        const entity = content.getEntity(entityKey);
-        if (entity.getType() === 'AUTOCOMPLETE') {
-          const entitySelection = SelectionState.createEmpty(blockKey).merge({
-            anchorOffset: offset - 1,
-            focusOffset: offset,
-          });
-
-          const newContentState = Modifier.removeRange(
-            content,
-            entitySelection,
-            'backward'
-          );
-
-          const newEditorState = EditorState.push(
-            editorState,
-            newContentState,
-            'remove-range'
-          );
-
-          setEditorState(
-            EditorState.forceSelection(
-              newEditorState,
-              newContentState.getSelectionAfter(),
-            )
-          );
-
-          return 'handled';
-        }
-      }
-    }
-
-    return 'not-handled';
-  }
-
   return (
     <div
       onClick={focusEditor}
       className="autocomplete-editor-container"
     >
-      {/* @ts-expect-error - Known issue with Draft.js types */}
+      {/* @ts-expect-error - Issue with Draft.js types */}
       <Editor
         ref={editorRef}
         editorState={editorState}
         onChange={onChange}
         placeholder="There's no write's block here. Use <> to trigger autocomplete."
-        handleBeforeInput={(chars, state) => {
-          if (chars === '\b') {
-            return handleBeforeInputBackspace();
-          }
-
-          return handleBeforeInput(chars, state);
-        }}
+        handleBeforeInput={handleEditorBeforeInput}
         keyBindingFn={keyBindingFn}
         handleKeyCommand={handleKeyCommand}
       />
-      {isAutocompleteActive && (
+      {isAutocompleteActive && createPortal(
         <SuggestionList
           filteredSuggestions={filteredSuggestions}
           insertAutocompleteEntity={insertAutocompleteEntity}
           setHighlightedIndex={setHighlightedIndex}
           highlightedIndex={highlightedIndex}
-        />
+          suggestListPosition={suggestListPosition}
+        />, document.getElementById('portal-root') || document.body
       )}
     </div>
   )
